@@ -1,38 +1,235 @@
-// קוד זה חייב להיות מועתק ישירות ל-Google Apps Script (הרחבות -> Apps Script)
-// יש ללחוץ על 'פרוס' מחדש לאחר העדכון!
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>שאלון משוב - המכון הישראלי לבינה מלאכותית (IIAI)</title>
+    <!-- טעינת Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* הגדרת פונט Inter כברירת מחדל */
+        :root {
+            --font-inter: 'Inter', sans-serif;
+        }
+        body {
+            font-family: var(--font-inter);
+            direction: rtl; /* כיווניות מימין לשמאל */
+        }
+        /* סגנון לשאלות בחירה (Radio buttons) */
+        .custom-radio input:checked + label {
+            background-color: #00A3FF; /* צבע הדגשה כחול */
+            color: #FFFFFF;
+            border-color: #00A3FF;
+        }
+        .custom-radio label {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        /* Spinner */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 1.5rem;
+            height: 1.5rem;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-4 sm:p-8">
 
-// פונקציה זו רצה כשיש בקשת GET (כאשר הדף נטען - אין שימוש בפועל)
-function doGet(e) {
-  return HtmlService.createHtmlOutput("Method not allowed. Please submit the form using POST.");
-}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('feedback-form');
+            const submitButton = document.getElementById('submit-feedback');
 
-// פונקציה זו רצה כשיש בקשת POST (כאשר המשתמש שולח את הטופס)
-function doPost(e) {
-  // 1. קביעת משתנים
-  const sheetName = "Sheet1"; // ודא שזה שם הגיליון שלך (בדרך כלל Sheet1)
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(sheetName);
+            // פונקציה לבדיקת שדות חובה לפני השליחה לסקריפט של גוגל
+            form.addEventListener('submit', function(event) {
+                
+                // בדיקת שדות בחירה חובה
+                const q1 = form.elements['q1_rating'].value;
+                const q4 = form.elements['q4_tools_applied'].value;
+                const q6 = form.elements['q6_recommend'].value;
 
-  // 2. קבלת הנתונים מהטופס (נקודה e.parameter)
-  const data = e.parameter;
-  
-  // 3. איסוף הנתונים לפי הסדר שקבענו בכותרות
-  const rowData = [
-    new Date(), // Timestamp אוטומטי (עמודה A1)
-    data.q1_rating,
-    data.q2_reason,
-    data.q3_significant,
-    data.q4_tools_applied,
-    data.q5_suitable_for,
-    data.q6_recommend,
-    data.q7_improve,
-    data.q8_next_topic
-  ];
+                if (!q1 || !q4 || !q6) {
+                    event.preventDefault(); // עצירת השליחה
+                    alert("אנא מלא את כל שאלות הבחירה המסומנות בכוכבית."); // שימוש באלרט מותאם אישית
+                    return;
+                }
 
-  // 4. הוספת שורה חדשה לגיליון
-  sheet.appendRow(rowData);
+                // הצגת ספינר בזמן השליחה
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<div class="flex items-center justify-center gap-3"><div class="spinner"></div><span>שולח משוב...</span></div>';
+            });
+        });
 
-  // 5. בניית תגובה למשתמש (אישור הצלחה)
-  // *** התיקון: הסרת .setMimeType(HtmlService.MimeType.TEXT) המיותר והשגוי ***
-  return HtmlService.createHtmlOutput('<h1>תודה רבה!</h1><p>המשוב שלך נשלח בהצלחה.</p>');
-}
+        // יצירת פונקציית alert מותאמת אישית במקום window.alert, כיוון שאסור להשתמש בה
+        function alert(message) {
+            const alertBox = document.getElementById('custom-alert-box');
+            const alertText = document.getElementById('custom-alert-text');
+            const alertCloseBtn = document.getElementById('custom-alert-close');
+            
+            alertText.textContent = message;
+            alertBox.classList.remove('hidden');
+            
+            alertCloseBtn.onclick = () => {
+                alertBox.classList.add('hidden');
+            };
+        }
+    </script>
+    
+    <!-- Custom Alert Modal (מחליף את alert() האסור) -->
+    <div id="custom-alert-box" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center p-4">
+        <div class="bg-red-700 p-6 rounded-xl shadow-2xl max-w-xs w-full text-center border-t-4 border-red-500">
+            <p id="custom-alert-text" class="text-white font-bold mb-4"></p>
+            <button id="custom-alert-close" class="w-full py-2 bg-white text-red-700 font-bold rounded-lg transition duration-150">
+                סגור
+            </button>
+        </div>
+    </div>
+
+
+    <!-- קונטיינר ראשי -->
+    <div class="max-w-3xl mx-auto bg-gray-800 p-6 sm:p-10 rounded-xl shadow-2xl">
+        
+        <!-- כותרת ופתיחה -->
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-white mb-3 text-center">שאלון משוב - הסדנה שלנו</h1>
+        <p class="text-lg text-gray-400 mb-8 text-center">
+            זה יקח לך רק 2-3 דקות, ונשמח מאוד לשמוע ממך! 💙
+        </p>
+
+        <!-- טופס המשוב הראשי -->
+        <div id="feedback-container">
+            <form 
+                action="https://script.google.com/macros/s/AKfycbzBOCT4QYYtNB5wGbKFN19bthTUfs10RZQXcZvMlriqBfpUZA1w1MDQNqOtlhcjo0uPgA/exec" 
+                method="POST" 
+                id="feedback-form" 
+                class="space-y-8"
+            >
+                
+                <!-- 1. דירוג ציפיות -->
+                <div class="space-y-3 p-4 bg-gray-700 rounded-lg shadow-lg">
+                    <label class="block text-xl font-bold text-white mb-4" for="q1">1. באיזו מידה הסדנה עמדה בציפיות שלך? ⭐</label>
+                    <div class="flex flex-col sm:flex-row justify-between custom-radio text-center text-sm sm:text-base gap-3">
+                        
+                        <!-- שדות רדיו עם תצוגת מובייל משופרת (רוחב מלא במובייל) -->
+                        <input type="radio" id="q1_1" name="q1_rating" value="1" class="hidden" required>
+                        <label for="q1_1" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">1 - בכלל לא</label>
+
+                        <input type="radio" id="q1_2" name="q1_rating" value="2" class="hidden" required>
+                        <label for="q1_2" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">2</label>
+
+                        <input type="radio" id="q1_3" name="q1_rating" value="3" class="hidden" required>
+                        <label for="q1_3" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">3</label>
+
+                        <input type="radio" id="q1_4" name="q1_rating" value="4" class="hidden" required>
+                        <label for="q1_4" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">4</label>
+
+                        <input type="radio" id="q1_5" name="q1_rating" value="5" class="hidden" required>
+                        <label for="q1_5" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">5 - מעבר לציפיות!</label>
+
+                    </div>
+                </div>
+
+                <!-- 2. למה נרשמת לסדנה? -->
+                <div>
+                    <label class="block text-xl font-bold text-white mb-2" for="q2_reason">2. למה בעצם נרשמת לסדנה? 🤔</label>
+                    <input type="text" id="q2_reason" name="q2_reason" placeholder='לדוגמה: "רציתי ללמוד איך לבנות אתר" / "המלצה מחבר" / "רציתי לקדם את העסק"'
+                           class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+
+                <!-- 3. הדבר הכי משמעותי שלמדת -->
+                <div>
+                    <label class="block text-xl font-bold text-white mb-2" for="q3_significant">3. מה הדבר הכי משמעותי שלמדת או קיבלת מהסדנה? 🎯</label>
+                    <textarea id="q3_significant" name="q3_significant" rows="3" placeholder="אנא כתוב 2-3 משפטים"
+                              class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-blue-500 focus:border-blue-500 resize-none"></textarea>
+                </div>
+                
+                <!-- 4. יישום כלים -->
+                <div class="space-y-3 p-4 bg-gray-700 rounded-lg shadow-lg">
+                    <label class="block text-xl font-bold text-white mb-4" for="q4">4. האם קיבלת כלים שאתה יכול/ה ליישם מיד?*</label>
+                    <div class="custom-radio space-y-2">
+                        <div class="flex items-center">
+                            <input type="radio" id="q4_a" name="q4_tools_applied" value="כן, בהחלט" class="hidden" required>
+                            <label for="q4_a" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50">כן, בהחלט! יש לי בדיוק מה צריך 💪</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="radio" id="q4_b" name="q4_tools_applied" value="כן, חלקית" class="hidden" required>
+                            <label for="q4_b" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50">כן, חלקית - יש מה לעבוד איתו</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="radio" id="q4_c" name="q4_tools_applied" value="לא בטוח" class="hidden" required>
+                            <label for="q4_c" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50">לא בטוח/ה עדיין</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="radio" id="q4_d" name="q4_tools_applied" value="לא ממש" class="hidden" required>
+                            <label for="q4_d" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50">לא ממש</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. למי תתאים הסדנה -->
+                <div>
+                    <label class="block text-xl font-bold text-white mb-2" for="q5_suitable_for">5. למי לדעתך הסדנה הזאת תתאים במיוחד? 👥</label>
+                    <input type="text" id="q5_suitable_for" name="q5_suitable_for" placeholder='לדוגמה: "למי שמתחיל בתחום" / "לבעלי עסקים קטנים" / "למי שרוצה לעשות קריירה"'
+                           class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+                
+                <!-- 6. המלצה לחבר -->
+                <div class="space-y-3 p-4 bg-gray-700 rounded-lg shadow-lg">
+                    <label class="block text-xl font-bold text-white mb-4" for="q6">6. האם תמליץ/י על הסדנה לחבר או עמית?*</label>
+                    <div class="custom-radio space-y-2">
+                        <div class="flex items-center">
+                            <input type="radio" id="q6_a" name="q6_recommend" value="בהחלט אמליץ" class="hidden" required>
+                            <label for="q6_a" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50">בהחלט אמליץ! 🌟</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="radio" id="q6_b" name="q6_recommend" value="כן, אמליץ" class="hidden" required>
+                            <label for="q6_b" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50">כן, אמליץ</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="radio" id="q6_c" name="q6_recommend" value="אולי" class="hidden" required>
+                            <label for="q6_c" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50">אולי</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="radio" id="q6_d" name="q6_recommend" value="לא" class="hidden" required>
+                            <label for="q6_d" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50">לא</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 7. מה היית משפר/משנה (אופציונלי) -->
+                <div>
+                    <label class="block text-xl font-bold text-white mb-2" for="q7_improve">7. יש משהו שהיית משפר/ת או משנה בסדנה? 🛠️</label>
+                    <textarea id="q7_improve" name="q7_improve" rows="2" placeholder="לא חייבים למלא - אבל נשמח לשמוע!"
+                              class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-blue-500 focus:border-blue-500 resize-none"></textarea>
+                </div>
+                
+                <!-- 8. נושא לסדנה נוספת (אופציונלי) -->
+                <div>
+                    <label class="block text-xl font-bold text-white mb-2" for="q8_next_topic">8. (אופציונלי) על איזה נושא היית רוצה סדנה נוספת? 💡</label>
+                    <input type="text" id="q8_next_topic" name="q8_next_topic" placeholder="לדוגמה: Prompt Engineering מתקדם / AI לעיצוב גרפי"
+                           class="w-full p-3 rounded-lg bg-gray-700 border border-gray-600 focus:ring-blue-500 focus:border-blue-500" />
+                </div>
+                
+                <!-- כפתור שליחה -->
+                <button type="submit" id="submit-feedback"
+                        class="w-full py-4 px-4 bg-green-500 hover:bg-green-600 text-gray-900 font-extrabold text-xl rounded-xl transition duration-200 shadow-lg shadow-green-500/30">
+                    שלח משוב
+                </button>
+            </form>
+            
+            <!-- הודעת סיום - מוצגת רק אם הטופס לא נשלח -->
+            <div class="text-center mt-10 p-5 bg-gray-700 rounded-lg">
+                <p class="text-lg font-bold text-white mb-2">🙏 תודה ענקית!</p>
+                <p class="text-md text-gray-300">המשוב שלך עוזר לנו להשתפר ולהמשיך לתת ערך.</p>
+                <p class="text-md text-gray-300 mt-1">אנחנו מעריכים שהקדשת את הזמן היקר שלך!</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
