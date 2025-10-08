@@ -66,9 +66,16 @@
         document.addEventListener('DOMContentLoaded', () => {
             const form = document.getElementById('feedback-form');
             const submitButton = document.getElementById('submit-feedback');
+            const formContainer = document.getElementById('form-container');
+            const successContainer = document.getElementById('success-message-container');
+            
+            // כתובת ה-Google Apps Script POST
+            const scriptURL = "https://script.google.com/macros/s/AKfycbyIEMlIGaC5UhnObfyopah0UwEgmQiRgRSUvyopAFKDFSKTDv7LToDOHNCJ7kd2UYpnWQ/exec";
 
-            // פונקציה לבדיקת שדות חובה לפני השליחה
-            form.addEventListener('submit', function(event) {
+
+            // פונקציה לטיפול בשליחה אסינכרונית
+            form.addEventListener('submit', async function(event) {
+                event.preventDefault(); // עצירת השליחה הרגילה לדף של גוגל
                 
                 // בדיקת שדות בחירה חובה
                 const q1 = form.elements['q1_rating']?.value;
@@ -76,14 +83,47 @@
                 const q6 = form.elements['q6_recommend']?.value;
 
                 if (!q1 || !q4 || !q6) {
-                    event.preventDefault(); // עצירת השליחה
                     alert("⚠️ שים לב: אנא מלא את כל שאלות הבחירה המסומנות בכוכבית (*)."); 
                     return;
                 }
 
-                // הצגת ספינר בזמן השליחה
+                // הצגת ספינר ונטרול כפתור
                 submitButton.disabled = true;
+                const originalButtonContent = submitButton.innerHTML;
                 submitButton.innerHTML = '<div class="flex items-center justify-center gap-3"><div class="spinner"></div><span>שולח משוב...</span></div>';
+                
+                try {
+                    // יצירת אובייקט FormData
+                    const formData = new FormData(form);
+
+                    // שליחת הנתונים באמצעות Fetch API
+                    const response = await fetch(scriptURL, {
+                        method: 'POST',
+                        body: formData // שליחת הנתונים
+                    });
+
+                    // בדיקה האם התגובה מצד גוגל סקריפט הצליחה (HTTP status 200)
+                    if (response.ok) {
+                        // הצלחה! הסתרת הטופס והצגת הודעת תודה מעוצבת
+                        formContainer.classList.add('hidden');
+                        successContainer.classList.remove('hidden');
+
+                        // גלילה חלקה למעלה
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                        
+                    } else {
+                        // אם יש בעיה כלשהי בתגובה מהשרת
+                        throw new Error(`שליחה נכשלה (קוד: ${response.status})`);
+                    }
+
+                } catch (error) {
+                    console.error('Error submitting form:', error);
+                    alert("❌ שגיאה בשליחת המשוב. אנא נסה שוב או פנה לתמיכה.");
+                } finally {
+                    // החזרת הכפתור למצב רגיל
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalButtonContent;
+                }
             });
         });
     </script>
@@ -108,14 +148,24 @@
             זה יקח לך רק 2-3 דקות, והמשוב שלך חיוני להמשך פיתוח התוכן (תחשוב **העצמה** ו**חדשנות**!).
         </p>
 
+        <!-- הודעת הצלחה מעוצבת (מוצגת לאחר שליחה מוצלחת) -->
+        <div id="success-message-container" class="hidden text-center p-12 bg-gray-700 rounded-xl shadow-2xl">
+            <div class="text-green-400 mb-4">
+                <!-- SVG Icon - Check Mark -->
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mx-auto" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <h2 class="text-4xl font-extrabold text-green-400 mb-3">משוב נשלח בהצלחה! 🎉</h2>
+            <p class="text-xl text-gray-200 mb-6">תודה ענקית שהקדשת מזמנך!</p>
+            <p class="text-md text-gray-400">המשוב שלך הועבר לצוות ומהווה מנוע מרכזי עבורנו לשיפור ופיתוח סדנאות עתידיות.</p>
+            <p class="text-md text-gray-400 mt-2 font-bold">אנחנו מעריכים את ה**פרקטיות** ואת הנכונות שלך לעזור לנו להשתפר!</p>
+        </div>
+
         <!-- טופס המשוב הראשי -->
-        <div id="feedback-container">
-            <form 
-                action="https://script.google.com/macros/s/AKfycbyIEMlIGaC5UhnObfyopah0UwEgmQiRgRSUvyopAFKDFSKTDv7LToDOHNCJ7kd2UYpnWQ/exec" 
-                method="POST" 
-                id="feedback-form" 
-                class="space-y-8"
-            >
+        <div id="form-container">
+            <!-- הערה: הוסר ה-action וה-method כדי שה-JS יטפל בשליחה -->
+            <form id="feedback-form" class="space-y-8">
                 
                 <!-- 1. דירוג ציפיות -->
                 <div class="space-y-3 p-4 bg-gray-700 rounded-lg shadow-xl">
@@ -229,7 +279,7 @@
                 </button>
             </form>
             
-            <!-- הודעת סיום - מוצגת רק אם הטופס לא נשלח -->
+            <!-- הודעת סיום שמופיעה בתחתית (נשארת למקרה של גלילה מטה) -->
             <div class="text-center mt-10 p-5 bg-gray-700 rounded-xl">
                 <p class="text-lg font-bold text-white mb-2">🙏 תודה ענקית על המשוב!</p>
                 <p class="text-md text-gray-300">המשוב שלך מניע את ה**חדשנות** וה**יצירתיות** במכון הישראלי לבינה מלאכותית (IIAI).</p>
