@@ -25,156 +25,73 @@
             transition: all 0.2s;
             cursor: pointer;
         }
-        /* עיצוב עבור כוכב בדירוג */
-        .rating-label {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
+        /* Spinner */
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #fff;
+            border-radius: 50%;
+            width: 1.5rem;
+            height: 1.5rem;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen p-4 sm:p-8">
 
-    <!-- טעינת ספריות Firebase -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // הגדרות כלליות
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('feedback-form');
+            const submitButton = document.getElementById('submit-feedback');
 
-        let db, auth;
-        let userId = null;
-        let isAuthReady = false;
+            // פונקציה לבדיקת שדות חובה לפני השליחה לסקריפט של גוגל
+            form.addEventListener('submit', function(event) {
+                
+                // בדיקת שדות בחירה חובה
+                const q1 = form.elements['q1_rating'].value;
+                const q4 = form.elements['q4_tools_applied'].value;
+                const q6 = form.elements['q6_recommend'].value;
 
-        // --- פונקציות עזר ל-UI ---
-        const ui = {
-            form: document.getElementById('feedback-form'),
-            submitButton: document.getElementById('submit-feedback'),
-            messageBox: document.getElementById('message-box'),
-            feedbackContainer: document.getElementById('feedback-container'),
-            successModal: document.getElementById('success-modal'),
-            closeModalButton: document.getElementById('close-modal-btn')
-        };
-
-        function showErrorMessage(message) {
-            ui.messageBox.innerHTML = `
-                <div class="p-4 rounded-lg shadow-xl text-center bg-red-600 text-white">
-                    ${message}
-                </div>
-            `;
-            ui.messageBox.classList.remove('hidden');
-        }
-
-        function showSuccessModal() {
-            ui.successModal.classList.remove('hidden');
-            // הסתרת הטופס
-            ui.feedbackContainer.classList.add('hidden');
-        }
-
-        // סגירת המודאל בלחיצה על הכפתור
-        ui.closeModalButton?.addEventListener('click', () => {
-            ui.successModal.classList.add('hidden');
-        });
-
-        // --- אתחול Firebase ואימות משתמש ---
-        async function initializeFirebase() {
-            try {
-                if (Object.keys(firebaseConfig).length === 0) {
-                    console.error("Firebase config is missing.");
-                    showErrorMessage('שגיאת מערכת: הגדרות Firebase חסרות.');
+                if (!q1 || !q4 || !q6) {
+                    event.preventDefault(); // עצירת השליחה
+                    alert("אנא מלא את כל שאלות הבחירה המסומנות בכוכבית."); // שימוש באלרט מותאם אישית
                     return;
                 }
-                
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-                
-                // ודא שמסד הנתונים מוגדר למצב Debug
-                setLogLevel('debug'); 
 
-                if (initialAuthToken) {
-                    const userCredential = await signInWithCustomToken(auth, initialAuthToken);
-                    userId = userCredential.user.uid;
-                } else {
-                    const userCredential = await signInAnonymously(auth);
-                    userId = userCredential.user.uid;
-                }
-                isAuthReady = true;
-                console.log("Firebase initialized. User ID:", userId);
-
-            } catch (error) {
-                console.error("Firebase initialization or sign-in failed:", error);
-                showErrorMessage('שגיאה באתחול. נסה לרענן את העמוד.');
-            }
-        }
-
-        // --- טיפול בשליחת הטופס ---
-        ui.form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            if (!isAuthReady) {
-                showErrorMessage('המערכת עדיין בטעינה. אנא המתן רגע ונסה שוב.');
-                return;
-            }
-
-            ui.submitButton.disabled = true;
-            ui.submitButton.textContent = 'שולח...';
-            ui.messageBox.classList.add('hidden'); // הסתרת הודעות שגיאה קודמות
-
-            try {
-                // איסוף נתוני הטופס
-                const formData = new FormData(ui.form);
-                const data = {
-                    userId: userId, 
-                    timestamp: new Date().toISOString(),
-                    // שאלות בחירה (Radio)
-                    q1_rating: formData.get('q1_rating'),
-                    q4_tools_applied: formData.get('q4_tools_applied'),
-                    q6_recommend: formData.get('q6_recommend'),
-                    // שאלות טקסט חופשי
-                    q2_reason: formData.get('q2_reason').trim(),
-                    q3_significant: formData.get('q3_significant').trim(),
-                    q5_suitable_for: formData.get('q5_suitable_for').trim(),
-                    q7_improve: formData.get('q7_improve').trim(),
-                    q8_next_topic: formData.get('q8_next_topic').trim(),
-                };
-
-                // בדיקת שדות חובה
-                if (!data.q1_rating || !data.q4_tools_applied || !data.q6_recommend) {
-                     showErrorMessage('אנא מלא את כל שאלות הבחירה לפני השליחה.');
-                     ui.submitButton.disabled = false;
-                     ui.submitButton.textContent = 'שלח משוב';
-                     return;
-                }
-                
-                // נתיב ציבורי לאוסף המשוב
-                const feedbackCollectionRef = collection(db, `artifacts/${appId}/public/data/workshopFeedback`);
-                
-                await addDoc(feedbackCollectionRef, data);
-                
-                // הצגת המודאל
-                showSuccessModal();
-                
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                showErrorMessage('אירעה שגיאה בשליחת המשוב. אנא נסה/י שוב.');
-            } finally {
-                ui.submitButton.disabled = false;
-                if (!ui.feedbackContainer.classList.contains('hidden')) {
-                    ui.submitButton.textContent = 'שלח משוב';
-                }
-            }
+                // הצגת ספינר בזמן השליחה
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<div class="flex items-center justify-center gap-3"><div class="spinner"></div><span>שולח משוב...</span></div>';
+            });
         });
 
-        // אתחול
-        initializeFirebase();
+        // יצירת פונקציית alert מותאמת אישית במקום window.alert, כיוון שאסור להשתמש בה
+        function alert(message) {
+            const alertBox = document.getElementById('custom-alert-box');
+            const alertText = document.getElementById('custom-alert-text');
+            const alertCloseBtn = document.getElementById('custom-alert-close');
+            
+            alertText.textContent = message;
+            alertBox.classList.remove('hidden');
+            
+            alertCloseBtn.onclick = () => {
+                alertBox.classList.add('hidden');
+            };
+        }
     </script>
+    
+    <!-- Custom Alert Modal (מחליף את alert() האסור) -->
+    <div id="custom-alert-box" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center p-4">
+        <div class="bg-red-700 p-6 rounded-xl shadow-2xl max-w-xs w-full text-center border-t-4 border-red-500">
+            <p id="custom-alert-text" class="text-white font-bold mb-4"></p>
+            <button id="custom-alert-close" class="w-full py-2 bg-white text-red-700 font-bold rounded-lg transition duration-150">
+                סגור
+            </button>
+        </div>
+    </div>
+
 
     <!-- קונטיינר ראשי -->
     <div class="max-w-3xl mx-auto bg-gray-800 p-6 sm:p-10 rounded-xl shadow-2xl">
@@ -185,12 +102,14 @@
             זה יקח לך רק 2-3 דקות, ונשמח מאוד לשמוע ממך! 💙
         </p>
 
-        <!-- הודעות מערכת (שגיאה בלבד) -->
-        <div id="message-box" class="mb-6 hidden"></div>
-
         <!-- טופס המשוב הראשי -->
         <div id="feedback-container">
-            <form id="feedback-form" class="space-y-8">
+            <form 
+                action="https://script.google.com/macros/s/AKfycbzBOCT4QYYtNB5wGbKFN19bthTUfs10RZQXcZvMlriqBfpUZA1w1MDQNqOtlhcjo0uPgA/exec" 
+                method="POST" 
+                id="feedback-form" 
+                class="space-y-8"
+            >
                 
                 <!-- 1. דירוג ציפיות -->
                 <div class="space-y-3 p-4 bg-gray-700 rounded-lg shadow-lg">
@@ -199,19 +118,19 @@
                         
                         <!-- שדות רדיו עם תצוגת מובייל משופרת (רוחב מלא במובייל) -->
                         <input type="radio" id="q1_1" name="q1_rating" value="1" class="hidden" required>
-                        <label for="q1_1" class="p-3 w-full sm:w-1/5 border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">1 - בכלל לא</label>
+                        <label for="q1_1" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">1 - בכלל לא</label>
 
                         <input type="radio" id="q1_2" name="q1_rating" value="2" class="hidden" required>
-                        <label for="q1_2" class="p-3 w-full sm:w-1/5 border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">2</label>
+                        <label for="q1_2" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">2</label>
 
                         <input type="radio" id="q1_3" name="q1_rating" value="3" class="hidden" required>
-                        <label for="q1_3" class="p-3 w-full sm:w-1/5 border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">3</label>
+                        <label for="q1_3" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">3</label>
 
                         <input type="radio" id="q1_4" name="q1_rating" value="4" class="hidden" required>
-                        <label for="q1_4" class="p-3 w-full sm:w-1/5 border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">4</label>
+                        <label for="q1_4" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">4</label>
 
                         <input type="radio" id="q1_5" name="q1_rating" value="5" class="hidden" required>
-                        <label for="q1_5" class="p-3 w-full sm:w-1/5 border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">5 - מעבר לציפיות!</label>
+                        <label for="q1_5" class="p-3 w-full border-2 border-gray-600 rounded-lg hover:bg-gray-600/50 rating-label">5 - מעבר לציפיות!</label>
 
                     </div>
                 </div>
@@ -232,7 +151,7 @@
                 
                 <!-- 4. יישום כלים -->
                 <div class="space-y-3 p-4 bg-gray-700 rounded-lg shadow-lg">
-                    <label class="block text-xl font-bold text-white mb-4" for="q4">4. האם קיבלת כלים שאתה יכול/ה ליישם מיד?</label>
+                    <label class="block text-xl font-bold text-white mb-4" for="q4">4. האם קיבלת כלים שאתה יכול/ה ליישם מיד?*</label>
                     <div class="custom-radio space-y-2">
                         <div class="flex items-center">
                             <input type="radio" id="q4_a" name="q4_tools_applied" value="כן, בהחלט" class="hidden" required>
@@ -262,7 +181,7 @@
                 
                 <!-- 6. המלצה לחבר -->
                 <div class="space-y-3 p-4 bg-gray-700 rounded-lg shadow-lg">
-                    <label class="block text-xl font-bold text-white mb-4" for="q6">6. האם תמליץ/י על הסדנה לחבר או עמית?</label>
+                    <label class="block text-xl font-bold text-white mb-4" for="q6">6. האם תמליץ/י על הסדנה לחבר או עמית?*</label>
                     <div class="custom-radio space-y-2">
                         <div class="flex items-center">
                             <input type="radio" id="q6_a" name="q6_recommend" value="בהחלט אמליץ" class="hidden" required>
@@ -303,22 +222,13 @@
                     שלח משוב
                 </button>
             </form>
-        </div>
-    </div>
-
-    <!-- Success Modal Popup -->
-    <div id="success-modal" class="fixed inset-0 bg-gray-900 bg-opacity-90 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl max-w-sm w-full text-center border-t-4 border-green-500 transform scale-100 transition-transform duration-300">
-            <!-- אייקון V גדול -->
-            <svg class="mx-auto h-16 w-16 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <h2 class="text-3xl font-extrabold text-white mb-3">תודה ענקית! 🙏</h2>
-            <p class="text-lg text-gray-300 mb-6">המשוב שלך התקבל בהצלחה.</p>
-            <p class="text-md text-gray-400">הקדשת הזמן שלך יקרת ערך ועוזרת לנו לשפר את הסדנאות שלנו ב-IIAI. ניפגש בסדנה הבאה!</p>
-            <button id="close-modal-btn" class="mt-6 w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition duration-150 shadow-md">
-                סגור
-            </button>
+            
+            <!-- הודעת סיום - מוצגת רק אם הטופס לא נשלח -->
+            <div class="text-center mt-10 p-5 bg-gray-700 rounded-lg">
+                <p class="text-lg font-bold text-white mb-2">🙏 תודה ענקית!</p>
+                <p class="text-md text-gray-300">המשוב שלך עוזר לנו להשתפר ולהמשיך לתת ערך.</p>
+                <p class="text-md text-gray-300 mt-1">אנחנו מעריכים שהקדשת את הזמן היקר שלך!</p>
+            </div>
         </div>
     </div>
 </body>
